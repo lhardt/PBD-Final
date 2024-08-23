@@ -63,4 +63,5 @@ We can either **(1)** host a custom web app to query data from the DB (such as J
    source venv/bin/activate  # Para macOS/Linux
    venv\Scripts\activate  # Para Windows
    pip install -r requirements.txt
+   python -m backend
    
