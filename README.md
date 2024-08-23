@@ -46,3 +46,21 @@ We can either **(1)** host a custom web app to query data from the DB (such as J
 **Relevant links:** 
 
 - Python [Folium](https://python-visualization.github.io/folium/latest/): a data visualization library that compiles into HTML
+
+
+
+## Requisitos
+
+- Python 3.8+
+- MongoDB (rodando localmente)
+- pip (para instalar as dependências)
+
+## Configuração
+
+1. Crie um ambiente virtual e ative-o:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # Para macOS/Linux
+   venv\Scripts\activate  # Para Windows
+   pip install -r requirements.txt
+   
