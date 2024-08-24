@@ -1,6 +1,6 @@
 # scripts/run_db_setup.py
 import sys
-sys.path.append('.')
+sys.path.append('..')
 
 from db.connection import get_db_client
 from db.create_db import create_imoveisdb_collections

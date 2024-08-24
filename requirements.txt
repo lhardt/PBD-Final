@@ -3,3 +3,4 @@ dnspython>=2.6.1
 pymongo>=4.8.0
 bs4>=4.0.1
 requests>=2.26.0
+aiohttp>=3.8.1
