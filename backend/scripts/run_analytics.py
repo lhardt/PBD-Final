@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import simpledialog, messagebox
 import pandas as pd
 import matplotlib.pyplot as plt
+import pymongo
 import seaborn as sns
 import unicodedata
 import re
@@ -87,13 +88,18 @@ def get_avg_price_by_neighborhood():
         messagebox.showwarning("Aviso", "Nenhum bairro foi fornecido.")
 
 
+def get_highest_value():
+    property_listings = get_data()
+    top_properties = property_listings.sort_values("Property Value", -1).limit(10)
+    for prop in top_properties:
+        print(prop)
 def main():
     root = tk.Tk()
     root.title("Análise de Imóveis")
 
     tk.Button(root, text="Visualizar Gráficos", command=plot_graphs).pack(pady=10)
     tk.Button(root, text="Consultar Preço Médio por Bairro", command=get_avg_price_by_neighborhood).pack(pady=10)
-
+    tk.Button(root, text="10 Propriedades mais caras", command=get_highest_value).pack(pady=10)
     root.mainloop()
 
 if __name__ == "__main__":
