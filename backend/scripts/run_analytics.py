@@ -34,7 +34,8 @@ def get_data():
         property_listings['bairro'] = property_listings['Address'].apply(lambda x: normalize_neighborhood_name(x.split(',')[1].strip()))
     property_listings = property_listings[~property_listings['bairro'].str.isdigit()]
     property_listings = property_listings[property_listings['bairro'].str.len() > 0]
-    property_listings = property_listings[property_listings['Property Value'] > 0]
+    property_listings = property_listings[property_listings['Property Value'] > 5000]
+    property_listings = property_listings[property_listings['Property Value'] < 30000000]
     return property_listings
 
 def plot_graphs():
@@ -42,34 +43,60 @@ def plot_graphs():
     if property_listings.empty:
         return
 
-    fig, axes = plt.subplots(1, 2, figsize=(18, 8))
-
+    # Calcula a média de preço por bairro
     avg_price_per_neighborhood = property_listings.groupby('bairro')['Property Value'].mean().sort_values()
-    sns.barplot(x=avg_price_per_neighborhood.index, y=avg_price_per_neighborhood.values, ax=axes[0])
-    axes[0].set_title('Média de Preços das Listagens de Propriedades por Bairro (sem Outliers)')
+
+    # Calcula a densidade de listagens por bairro
+    listings_count_by_neighborhood = property_listings['bairro'].value_counts()
+
+    # Separação dos top 10 e bottom 10 para preço médio
+    top_10_avg_price = avg_price_per_neighborhood.tail(10)
+    bottom_10_avg_price = avg_price_per_neighborhood.head(10)
+
+    # Top 10 para densidade de listagens
+    top_10_listings_count = listings_count_by_neighborhood.head(10)
+
+    fig, axes = plt.subplots(1, 3, figsize=(18, 8))
+
+    # Gráfico Top 10 bairros por preço médio
+    sns.barplot(x=top_10_avg_price.index, y=top_10_avg_price.values, ax=axes[0])
+    axes[0].set_title('Top 10 Bairros por Preço Médio')
     axes[0].set_xlabel('Bairro')
     axes[0].set_ylabel('Média de Preço')
 
-    for i, value in enumerate(avg_price_per_neighborhood.values):
+    for i, value in enumerate(top_10_avg_price.values):
         axes[0].text(i, value + 5000, f'{int(value):,}', ha='center', va='bottom')
 
-    axes[0].set_xticks(range(len(avg_price_per_neighborhood.index)))
-    axes[0].set_xticklabels(avg_price_per_neighborhood.index, rotation=45, ha='right')
+    axes[0].set_xticks(range(len(top_10_avg_price.index)))
+    axes[0].set_xticklabels(top_10_avg_price.index, rotation=45, ha='right')
 
-    listings_count_by_neighborhood = property_listings['bairro'].value_counts()
-    sns.barplot(x=listings_count_by_neighborhood.index, y=listings_count_by_neighborhood.values, ax=axes[1])
-    axes[1].set_title('Bairros com Mais Listagens (sem Outliers)')
+    # Gráfico Bottom 10 bairros por preço médio
+    sns.barplot(x=bottom_10_avg_price.index, y=bottom_10_avg_price.values, ax=axes[1])
+    axes[1].set_title('Bottom 10 Bairros por Preço Médio')
     axes[1].set_xlabel('Bairro')
-    axes[1].set_ylabel('Número de Listagens')
+    axes[1].set_ylabel('Média de Preço')
 
-    for i, value in enumerate(listings_count_by_neighborhood.values):
-        axes[1].text(i, value + 1, f'{value}', ha='center', va='bottom')
+    for i, value in enumerate(bottom_10_avg_price.values):
+        axes[1].text(i, value + 5000, f'{int(value):,}', ha='center', va='bottom')
 
-    axes[1].set_xticks(range(len(listings_count_by_neighborhood.index)))
-    axes[1].set_xticklabels(listings_count_by_neighborhood.index, rotation=45, ha='right')
+    axes[1].set_xticks(range(len(bottom_10_avg_price.index)))
+    axes[1].set_xticklabels(bottom_10_avg_price.index, rotation=45, ha='right')
+
+    # Gráfico Top 10 bairros por densidade de listagens
+    sns.barplot(x=top_10_listings_count.index, y=top_10_listings_count.values, ax=axes[2])
+    axes[2].set_title('Top 10 Bairros por Densidade de Listagens')
+    axes[2].set_xlabel('Bairro')
+    axes[2].set_ylabel('Número de Listagens')
+
+    for i, value in enumerate(top_10_listings_count.values):
+        axes[2].text(i, value + 1, f'{value}', ha='center', va='bottom')
+
+    axes[2].set_xticks(range(len(top_10_listings_count.index)))
+    axes[2].set_xticklabels(top_10_listings_count.index, rotation=45, ha='right')
 
     plt.tight_layout()
     plt.show()
+
 
 def get_avg_price_by_neighborhood():
     property_listings = get_data()
@@ -89,10 +116,14 @@ def get_avg_price_by_neighborhood():
 
 
 def get_highest_value():
-    property_listings = get_data()
-    top_properties = property_listings.sort_values("Property Value", -1).limit(10)
-    for prop in top_properties:
-        print(prop)
+    client = get_db_client()
+    db = client['ImoveisDB']
+    collection = db['PropertyListing']
+    top_properties = collection.find().sort("Property Value", -1).limit(10)
+    for property in top_properties:
+        print(property)
+        print("\n")
+
 def main():
     root = tk.Tk()
     root.title("Análise de Imóveis")
