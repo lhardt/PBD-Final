@@ -12,7 +12,6 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 sys.path.append('..')
 from db.connection import get_db_client
 
-
 def normalize_neighborhood_name(name):
     name = unicodedata.normalize('NFKD', name).encode('ASCII', 'ignore').decode('ASCII')
     name = name.lower()
@@ -35,6 +34,7 @@ def get_data():
         property_listings['bairro'] = property_listings['Address'].apply(lambda x: normalize_neighborhood_name(x.split(',')[1].strip()))
     property_listings = property_listings[~property_listings['bairro'].str.isdigit()]
     property_listings = property_listings[property_listings['bairro'].str.len() > 0]
+    property_listings = property_listings[property_listings['areaPrivativa'] > 0]
     property_listings = property_listings[property_listings['Property Value'] > 5000]
     property_listings = property_listings[property_listings['Property Value'] < 30000000]
     return property_listings
@@ -257,16 +257,152 @@ def add_characteristics(property_details):
             break
     if characteristics:
         property_details['caracteristicas-condominio'] = characteristics
-   
 
-def get_highest_value():
-    client = get_db_client()
-    db = client['ImoveisDB']
-    collection = db['PropertyListing']
-    top_properties = collection.find().sort("Property Value", -1).limit(10)
-    for property in top_properties:
-        print(property)
-        print("\n")
+def avg_price_per_square_meter_by_neighborhood():
+    # Get the data as a pandas DataFrame
+    df = get_data()
+    
+    if df.empty:
+        return []
+
+    # Calculate price per square meter
+    df['price_per_sqm'] = df['Property Value'] / df['areaPrivativa']
+
+    # Group by neighborhood and calculate average price per square meter
+    result = df.groupby('bairro').agg({
+        'price_per_sqm': 'mean',
+        'Property Value': 'count'
+    }).reset_index()
+
+    # Sort by average price per square meter in descending order
+    result = result.sort_values('price_per_sqm', ascending=False)
+
+    # Format the results
+    formatted_results = []
+    for _, row in result.iterrows():
+        formatted_results.append({
+            "Bairro": row['bairro'],
+            "Preço Médio por m²": f"R$ {row['price_per_sqm']:,.2f}",
+            "Número de Imóveis": row['Property Value']
+        })
+
+    return formatted_results
+
+# The show_avg_price_per_sqm function remains the same
+def show_avg_price_per_sqm():
+    results = avg_price_per_square_meter_by_neighborhood()
+    
+    if not results:
+        messagebox.showinfo("Informação", "Não há dados disponíveis para exibir.")
+        return
+
+    # Create a new window to display results
+    result_window = tk.Toplevel()
+    result_window.title("Preço Médio por m² por Bairro")
+    result_window.geometry("1200x800")
+    result_window.configure(bg='#f0f0f0')
+
+    # Main frame
+    main_frame = ttk.Frame(result_window, padding="20 20 20 20")
+    main_frame.pack(fill=tk.BOTH, expand=True)
+
+    # Title
+    title_label = ttk.Label(main_frame, text="Preço Médio por m² por Bairro", 
+                            font=('Roboto', 24, 'bold'), background='#f0f0f0')
+    title_label.pack(pady=(0, 20))
+
+    # Create a treeview to display the results in a table format
+    style = ttk.Style()
+    style.configure("Treeview", font=('Roboto', 16), rowheight=30)
+    style.configure("Treeview.Heading", font=('Roboto', 18, 'bold'))
+
+    tree = ttk.Treeview(main_frame, columns=("Bairro", "Preço Médio por m²", "Número de Imóveis"), show="headings")
+    tree.heading("Bairro", text="Bairro")
+    tree.heading("Preço Médio por m²", text="Preço Médio por m²")
+    tree.heading("Número de Imóveis", text="Número de Imóveis")
+
+    tree.column("Bairro", width=300)
+    tree.column("Preço Médio por m²", width=300)
+    tree.column("Número de Imóveis", width=300)
+    
+    for result in results:
+        tree.insert("", "end", values=(result["Bairro"], result["Preço Médio por m²"], result["Número de Imóveis"]))
+    
+    tree.pack(expand=True, fill="both", padx=20, pady=20)
+
+    # Scrollbar
+    scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=tree.yview)
+    scrollbar.pack(side="right", fill="y")
+    tree.configure(yscrollcommand=scrollbar.set)
+
+    # Footer
+    footer_label = ttk.Label(main_frame, text="@ Melnickstão", 
+                             font=('Roboto', 10), background='#f0f0f0')
+    footer_label.pack(side=tk.BOTTOM, pady=(20, 0))
+
+def get_avg_price_by_neighborhood():
+    property_listings = get_data()
+    if property_listings.empty:
+        messagebox.showinfo("Informação", "Não há dados disponíveis para exibir.")
+        return
+
+    # Create a new window to display results
+    result_window = tk.Toplevel()
+    result_window.title("Preço Médio por Bairro")
+    result_window.geometry("800x400")
+    result_window.configure(bg='#f0f0f0')
+
+    # Main frame
+    main_frame = ttk.Frame(result_window, padding="20 20 20 20")
+    main_frame.pack(fill=tk.BOTH, expand=True)
+
+    # Title
+    title_label = ttk.Label(main_frame, text="Preço Médio por Bairro", 
+                            font=('Roboto', 24, 'bold'), background='#f0f0f0')
+    title_label.pack(pady=(0, 20))
+
+    # Input frame
+    input_frame = ttk.Frame(main_frame)
+    input_frame.pack(pady=20)
+
+    input_label = ttk.Label(input_frame, text="Digite o nome do bairro:", 
+                            font=('Roboto', 14))
+    input_label.pack(side=tk.LEFT, padx=(0, 10))
+
+    input_entry = ttk.Entry(input_frame, font=('Roboto', 14), width=30)
+    input_entry.pack(side=tk.LEFT)
+
+    # Result frame
+    result_frame = ttk.Frame(main_frame)
+    result_frame.pack(pady=20, expand=True, fill=tk.BOTH)
+
+    result_label = ttk.Label(result_frame, text="", 
+                             font=('Roboto', 18), background='#f0f0f0')
+    result_label.pack(expand=True)
+
+    def search():
+        neighborhood = input_entry.get().strip()
+        if neighborhood:
+            normalized_neighborhood = normalize_neighborhood_name(neighborhood)
+            neighborhood_data = property_listings[property_listings['bairro'] == normalized_neighborhood]
+            if not neighborhood_data.empty:
+                avg_price = neighborhood_data['Property Value'].mean()
+                result_label.config(text=f"A média de preço para o bairro '{neighborhood}' é:\nR$ {avg_price:,.2f}")
+            else:
+                result_label.config(text="Nenhum dado encontrado para o bairro fornecido.")
+        else:
+            result_label.config(text="Por favor, digite o nome de um bairro.")
+
+    # Search button
+    search_button = ttk.Button(main_frame, text="Buscar", command=search, width=20)
+    search_button.pack(pady=20)
+
+    # Footer
+    footer_label = ttk.Label(main_frame, text="@ Melnickstão", 
+                             font=('Roboto', 10), background='#f0f0f0')
+    footer_label.pack(side=tk.BOTTOM, pady=(20, 0))
+
+    result_window.mainloop()
 
 def create_gui():
     root = tk.Tk()
@@ -275,16 +411,16 @@ def create_gui():
     root.configure(bg='#f0f0f0')
 
     # Load Roboto font
-    font_title = ('Roboto', 24, 'bold')
-    font_button = ('Roboto', 12)
-    font_label = ('Roboto', 10)
+    font_title = ('Roboto', 30, 'bold')
+    font_button = ('Roboto', 20)
+    font_label = ('Roboto', 18)
 
     # Configure styles
     style = ttk.Style()
     style.theme_use('clam')
     
     style.configure('TFrame', background='#f0f0f0')
-    style.configure('TButton', font=font_button, padding=10, background='#4CAF50', foreground='white')
+    style.configure('TButton', font=font_button, padding=30, background='#4CAF50', foreground='white')
     style.map('TButton', background=[('active', '#45a049')])
     style.configure('TLabel', font=font_label, background='#f0f0f0')
 
@@ -304,12 +440,14 @@ def create_gui():
     # Buttons
     buttons = [
         ("Mostrar Gráficos", plot_graphs),
-        ("Inserir Novo Imóvel", insert_estate)
+        ("Inserir Novo Imóvel", insert_estate),
+        ("Preço Médio por m² por Bairro", show_avg_price_per_sqm),
+        ("Preço Médio por Bairro", get_avg_price_by_neighborhood)
     ]
 
     for text, command in buttons:
-        btn = ttk.Button(button_frame, text=text, command=command, width=25)
-        btn.pack(side=tk.LEFT, padx=10)
+        btn = ttk.Button(button_frame, text=text, command=command, width=40)
+        btn.pack(pady=10)
 
     # Chart frame
     global chart_frame
@@ -317,7 +455,7 @@ def create_gui():
     chart_frame.pack(expand=True, fill=tk.BOTH, padx=10, pady=10)
 
     # Footer
-    footer_label = ttk.Label(main_frame, text="© 2024 Análise de Imóveis", 
+    footer_label = ttk.Label(main_frame, text="@ Melnickstão", 
                              font=font_label, background='#f0f0f0')
     footer_label.pack(side=tk.BOTTOM, pady=(20, 0))
 
